@@ -1,29 +1,32 @@
 # Yosuga no Sora Patch Conversion
+
 This program was created to convert the older versions of Yosuga no Sora and Haruka na Sora based on the EntisGLS Engine to the newer format based on the KiriKiri Engine.
 
-This entire process is detailed in the [wiki](https://github.com/TheRealMrWicked/Yosuga-no-Sora-Patch-Conversion/wiki/Yosuga-no-Sora-Patch-Conversion).
+This entire process is detailed in the [wiki](https://github.com/EnormousSpud/YnS-Wiki/wiki).
 
-The English patch for Yosuga no Sora can be found in the English YNS [Discord](https://discord.com/invite/zTnGA5p). I am very active in the discord server but I can also be directly messaged on Discord at MrWicked#5113.
+The English patch for Yosuga no Sora can be found in the English YNS [Discord](https://discord.gg/yosuga-no-sora).
 
-
+Only raw scripts in Japanese is supported at the moment, XP3 pack and other languages are WIP.
 
 # Instructions
-Step 1 - Download the latest program [release](https://github.com/TheRealMrWicked/Yosuga-no-Sora-Patch-Conversion/releases) and a yosuga.csx or Haruka.csx file from somewhere online (such as a translation group).
+
+Step 1 - Clone this repo to your local folder and enter it.
  
-Step 2 - Extract the downloaded zip into a folder and then place the .csx file into that folder.
+Step 2 - Download a yosuga.csx or Haruka.csx file from somewhere online (such as a translation group), then place the .csx file into the same folder.
 
-Step 3 - Double click the patchconvertor.exe file, if the program gives you the warning "Windows protected your PC" simply ignore and click run anyway.
+Step 3 - Run command `python main.py -i yosuga.csx` or `python main.py -i Haruka.csx` and wait until finished.
 
-Step 4 - Place the newly created patch.xp3 file into the Yosuga no Sora/Haruka na Sora game folder and run the game.
+Step 4 - You can find all generated Kirikiri scripts under the `compile/scenario` folder.
 
 **Please report any errors that are found with the FORMATTING of the text or names by making a pull request on GitHub.**
 
 **DO NOT report translation errors in the text to me, that data comes from the .csx filed you supplied.**
 
 # Credits
+
 The current version is a complete rewrite by [meimisaki](https://github.com/meimisaki).
 
-Yosuga no Sora Conversion Tool written by [MrWicked](https://github.com/TheRealMrWicked) under [GPL License](https://github.com/TheRealMrWicked/Yosuga-no-Sora-Patch-Conversion/blob/main/LICENSE).
+The original Yosuga no Sora Conversion Tool written by [MrWicked](https://github.com/TheRealMrWicked) under [GPL License](LICENSE).
 
 CSXtool written by Amanojaku.
 
