@@ -21,6 +21,8 @@ Step 4 - Place the newly created patch.xp3 file into the Yosuga no Sora/Haruka n
 **DO NOT report translation errors in the text to me, that data comes from the .csx filed you supplied.**
 
 # Credits
+The current version is a complete rewrite by [meimisaki](https://github.com/meimisaki).
+
 Yosuga no Sora Conversion Tool written by [MrWicked](https://github.com/TheRealMrWicked) under [GPL License](https://github.com/TheRealMrWicked/Yosuga-no-Sora-Patch-Conversion/blob/main/LICENSE).
 
 CSXtool written by Amanojaku.
