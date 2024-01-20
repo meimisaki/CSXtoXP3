@@ -6,19 +6,23 @@ import shutil
 import subprocess
 from config import lang2code, name2voice, translation
 
-def run_csxtool(target, indir, outdir):
+rootdir = os.path.dirname(os.path.abspath(__file__))
+
+def run_csxtool(infile, outdir):
+    csxname, csxext = os.path.splitext(os.path.basename(infile))
+    outfile = os.path.join(outdir, f"{csxname}.txt")
     # skip if cached
-    if os.path.exists(os.path.join(outdir, target + ".txt")):
-        return
-    # find tool location
-    rootdir = os.path.dirname(os.path.abspath(__file__))
+    if os.path.exists(outfile):
+        return outfile
+    # csxtool always writes to the same directory as input
+    tmpfile = shutil.copy(infile, outdir)
+    # execute csxtool command
     toolext = ".exe" if platform.system() == "Windows" else ""
-    exepath = os.path.join(rootdir, "bin", "csxtool" + toolext)
-    # execute command
-    subprocess.run([exepath, "export", indir], check=True)
-    # move output file
-    filepath = os.path.join(os.path.dirname(indir), target + ".txt")
-    shutil.move(filepath, outdir)
+    exefile = os.path.join(rootdir, "bin", f"csxtool{toolext}")
+    subprocess.run([exefile, "export", tmpfile], check=True)
+    # cleanup everything
+    os.remove(tmpfile)
+    return outfile
 
 def is_cjk_language(lang):
     return lang == "zh" or lang == "ja" or lang == "ko"
@@ -136,7 +140,6 @@ def replace_talk_command(template, text, verify):
     return res
 
 def fill_ks_template(target, lines, lang, outdir, verify):
-    rootdir = os.path.dirname(os.path.abspath(__file__))
     indir = os.path.join(rootdir, "dependencies", target)
     outdir = os.path.join(outdir, "scenario")
     os.makedirs(outdir, exist_ok=True)
@@ -165,6 +168,26 @@ def fill_ks_template(target, lines, lang, outdir, verify):
         with open(outpath, mode="w", encoding="utf-8") as file:
             file.write(res)
     assert offset == len(lines), f"unused translation text detected: {len(lines) - offset}"
+    return outdir
+
+def run_xp3pack(indir, outdir):
+    exdir = os.path.join(rootdir, "dependencies", "extras")
+    tmpdir = os.path.join(outdir, "patch")
+    # xp3pack always writes to cwd
+    cwd = os.getcwd()
+    os.chdir(outdir)
+    # combine input and extras
+    os.makedirs(tmpdir, exist_ok=True)
+    shutil.copytree(exdir, tmpdir, dirs_exist_ok=True)
+    shutil.copytree(indir, tmpdir, dirs_exist_ok=True)
+    # execute xp3pack command
+    monocmd = [] if platform.system() == "Windows" else ["mono"]
+    exefile = os.path.join(rootdir, "bin", "xp3pack.exe")
+    subprocess.run(monocmd + [exefile, tmpdir], check=True)
+    # cleanup everything
+    shutil.rmtree(tmpdir)
+    os.chdir(cwd)
+    return os.path.join(outdir, "patch.xp3")
 
 def main():
     # parse command args
@@ -189,18 +212,17 @@ def main():
         print(f"Voice verification turned off")
 
     # determine processing target
-    filename, ext = os.path.splitext(os.path.basename(args.input))
-    target = filename.lower()
+    csxname, csxext = os.path.splitext(os.path.basename(args.input))
+    target = csxname.lower()
     assert target == "yosuga" or target == "haruka", f"unrecognized processing target {target}, must be yosuga.csx or Haruka.csx"
     print(f"Processing {target}")
 
     # extract text from csx file
     os.makedirs(args.output, exist_ok=True)
-    run_csxtool(target, args.input, args.output)
-    print(f"CSX file exported")
+    txtfile = run_csxtool(args.input, args.output)
+    print(f"CSX file exported to: {txtfile}")
 
     # read and process generated text file
-    txtfile = os.path.join(args.output, target + ".txt")
     with open(txtfile, mode="r", encoding="utf-8") as file:
         lines = file.readlines()
     lines = cleanup_csx_export(target, lines, args.lang, keep_name=args.verify)
@@ -212,13 +234,15 @@ def main():
         tmppath = os.path.join(args.output, "tmp.txt")
         with open(tmppath, mode="w", encoding="utf-8") as file:
             file.write("\n".join(lines))
-        print(f"DEBUG file saved")
+        print(f"DEBUG file saved to {tmppath}")
 
     # fill text into kirikiri script template
-    fill_ks_template(target, lines, args.lang, args.output, args.verify)
-    print(f"KS files generated")
+    ksdir = fill_ks_template(target, lines, args.lang, args.output, args.verify)
+    print(f"KS files generated in {ksdir}")
 
-    # TODO: create xp3 patch
+    # pack output as xp3 format
+    xp3file = run_xp3pack(ksdir, args.output)
+    print(f"XP3 patch created at {xp3file}")
 
 if __name__ == "__main__":
     main()
