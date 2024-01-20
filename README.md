@@ -6,21 +6,19 @@ This entire process is detailed in the [wiki](https://github.com/EnormousSpud/Yn
 
 The English patch for Yosuga no Sora can be found in the English YNS [Discord](https://discord.gg/yosuga-no-sora).
 
-Only raw scripts in Japanese is supported at the moment, XP3 pack and other languages are WIP.
-
 # Instructions
 
 Step 1 - Clone this repo to your local folder and enter it.
- 
-Step 2 - Download a yosuga.csx or Haruka.csx file from somewhere online (such as a translation group), then place the .csx file into the same folder.
 
-Step 3 - Run command `python main.py -i yosuga.csx` or `python main.py -i Haruka.csx` and wait until finished.
+Step 2 - Download a `yosuga.csx` or `Haruka.csx` file from somewhere online (such as a translation group), then place the CSX file into the same folder.
 
-Step 4 - You can find all generated Kirikiri scripts under the `compile/scenario` folder.
+Step 3 - Run command `python main.py -i yosuga.csx -l en` or `python main.py -i Haruka.csx -l en` and wait until finished.
 
-**Please report any errors that are found with the FORMATTING of the text or names by making a pull request on GitHub.**
+Step 4 - You can find all generated KiriKiri scripts under the `compile/scenario` folder, and the packed XP3 file at `compile/patch.xp3`.
 
-**DO NOT report translation errors in the text to me, that data comes from the .csx filed you supplied.**
+_**Please report any errors that are found with the FORMATTING of the text or names by making a pull request on GitHub.**_
+
+_**DO NOT report translation errors in the text to me, that data comes from the CSX file you supplied.**_
 
 # Credits
 
