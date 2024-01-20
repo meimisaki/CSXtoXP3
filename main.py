@@ -149,15 +149,21 @@ def fill_ks_template(target, lines, lang, outdir, verify):
         inpath = os.path.join(indir, filename)
         with open(inpath, mode="r", encoding="utf-8") as file:
             template = file.readlines()
-        # fill template
+        # fill dialogue text
         cnt = count_talk_command(template)
         res = replace_talk_command(template, lines[offset:offset+cnt], verify)
         offset += cnt
-        # TODO: replace choice text
-        # save template
+        # replace choice text
+        res = "".join(res)
+        choices = translation[target].get("@AddSelect", {})
+        choices_src = choices.get("en", [])
+        choices_dst = choices.get(lang, [])
+        for original, localized in zip(choices_src, choices_dst):
+            res = res.replace(original, localized)
+        # save result
         outpath = os.path.join(outdir, filename)
         with open(outpath, mode="w", encoding="utf-8") as file:
-            file.writelines(res)
+            file.write(res)
     assert offset == len(lines), f"unused translation text detected: {len(lines) - offset}"
 
 def main():
