@@ -24,9 +24,6 @@ def run_csxtool(infile, outdir):
     os.remove(tmpfile)
     return outfile
 
-def is_cjk_language(lang):
-    return lang == "zh" or lang == "ja" or lang == "ko"
-
 def cleanup_csx_export(target, lines, lang, keep_name):
     res = []
     prev = 0
@@ -43,9 +40,9 @@ def cleanup_csx_export(target, lines, lang, keep_name):
         # keep name for verification
         if keep_name and name is not None:
             res[-1] += name
-        # add a space separator if not CJK
-        if not is_cjk_language(lang) and len(res[-1]) > 0:
-            res[-1] += " "
+        # add line break for multi-line text
+        if len(res[-1]) > 0:
+            res[-1] += "\n"
         res[-1] += text
     return res
 
