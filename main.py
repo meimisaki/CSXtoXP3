@@ -4,6 +4,7 @@ import platform
 import re
 import shutil
 import subprocess
+from config import lang2code, name2voice, translation
 
 def run_csxtool(target, indir, outdir):
     # skip if cached
@@ -19,7 +20,10 @@ def run_csxtool(target, indir, outdir):
     filepath = os.path.join(os.path.dirname(indir), target + ".txt")
     shutil.move(filepath, outdir)
 
-def cleanup_csx_export(target, lines, keep_name):
+def is_cjk_language(lang):
+    return lang == "zh" or lang == "ja" or lang == "ko"
+
+def cleanup_csx_export(target, lines, lang, keep_name):
     res = []
     prev = 0
     for line in lines:
@@ -32,13 +36,16 @@ def cleanup_csx_export(target, lines, keep_name):
         if prev != cur:
             res.append("")
             prev = cur
+        # keep name for verification
         if keep_name and name is not None:
             res[-1] += name
-        # TODO: we need a space here for non-CJK languages
+        # add a space separator if not CJK
+        if not is_cjk_language(lang) and len(res[-1]) > 0:
+            res[-1] += " "
         res[-1] += text
     return res
 
-def fix_missing_text(target, lines):
+def fix_missing_text(target, lines, lang):
     res = []
     cur = 0
     # csxtool missed some actor lines and we gotta fix them here
@@ -51,15 +58,14 @@ def fix_missing_text(target, lines):
                 # end at 想いが通じたことで、奈緒ちゃんとの距離が近づいたことが、とても嬉しかった。
                 continue
             elif cur == 2305:
-                # @Hitret id=4605
-                res.append("とは言っても、天女目からはまだ何をすればいいのか聞いていない。")
+                res.append(translation[target]["@Hitret id=4605"][lang])
             elif cur == 34889:
-                # @Hitret id=37208
-                res.append("穹は、初佳さんならうろたえてしまうほど、迷惑オーラを発しているのだが、おばさんには通じていない。")
+                res.append(translation[target]["@Hitret id=37208"][lang])
+            elif cur == 37465 and lang != "ja":
+                res.append(translation[target]["@Hitret id=325"][lang])
         elif target == "haruka":
             if cur == 3518:
-                # @Hitret id=3526
-                res.append("よだれをシーツに染みこませて、がくがくと身体全体を震わせる。")
+                res.append(translation[target]["@Hitret id=3526"][lang])
         res.append(line)
     return res
 
@@ -72,24 +78,6 @@ def count_talk_command(template):
         if is_ks_command(line, "@talk"):
             res += 1
     return res
-
-name2voice = {
-    "瑛": "AK", "Akira": "AK",
-    "車内アナウンス": "AN", "Announcer": "AN",
-    "男子生徒Ａ": "DA", "Male　Student　A": "DA",
-    "英語教師": "EI", "English　Teacher": "EI",
-    "一葉": "KA", "Kazuha": "KA",
-    "梢": "KO", "委員長": "KO", "Kozue": "KO", "Class　Rep": "KO",
-    "初佳": "MT", "Motoka": "MT",
-    "奈緒": "NO", "Nao": "NO",
-    "亮平": "RH", "Ryouhei": "RH",
-    "一葉の父": "SH", "Kazuha's　Father": "SH", "Man　In　Kimono": "SH",
-    "穹": "SR", "Sora": "SR",
-    "タカノ店主": "TK", "Shopkeeper": "TK",
-    "担任": "TN", "Teacher": "TN",
-    "やひろ": "YH", "Yahiro": "YH",
-    "月見山": "YM", "Yamanashi": "YM",
-}
 
 def replace_talk_command(template, text, verify):
     res = []
@@ -113,7 +101,7 @@ def replace_talk_command(template, text, verify):
                     name = name.replace("＆悠", "")
                     if name in name2voice:
                         # either match or ignore NPC voice
-                        assert name2voice[name] == voice or voice == "NP"
+                        assert name2voice[name] == voice or voice == "NP", f"name and voice not match: {name} vs {voice}"
                         matchcnt += 1
                 voice = None
                 # exit talk state
@@ -122,7 +110,7 @@ def replace_talk_command(template, text, verify):
                 talk = False
             else:
                 # skip empty line
-                assert len(line.strip()) == 0
+                assert len(line.strip()) == 0, f"unknown text between @Talk and @Hitret command: {line}"
                 continue
         else:
             if is_ks_command(line, "@talk"):
@@ -144,10 +132,10 @@ def replace_talk_command(template, text, verify):
         res.append(line)
     if verify:
         print(f"verified voice={voicecnt} match={matchcnt} skip={voicecnt - matchcnt}")
-    assert cur == len(text)
+    assert cur == len(text), f"@Talk command and translation text not match: {cur} vs {len(text)}"
     return res
 
-def fill_ks_template(target, lines, outdir, verify):
+def fill_ks_template(target, lines, lang, outdir, verify):
     rootdir = os.path.dirname(os.path.abspath(__file__))
     indir = os.path.join(rootdir, "dependencies", target)
     outdir = os.path.join(outdir, "scenario")
@@ -165,28 +153,39 @@ def fill_ks_template(target, lines, outdir, verify):
         cnt = count_talk_command(template)
         res = replace_talk_command(template, lines[offset:offset+cnt], verify)
         offset += cnt
+        # TODO: replace choice text
         # save template
         outpath = os.path.join(outdir, filename)
         with open(outpath, mode="w", encoding="utf-8") as file:
             file.writelines(res)
-    assert offset == len(lines)
+    assert offset == len(lines), f"unused translation text detected: {len(lines) - offset}"
 
 def main():
     # parse command args
     parser = argparse.ArgumentParser(description="Convert CSX to Kirikiri Script and XP3 for Yosuga and Haruka")
     parser.add_argument("-i", "--input", default="./yosuga.csx")
     parser.add_argument("-o", "--output", default="./compile")
-    # TODO: support other languages
+    parser.add_argument("-l", "--lang", default="ja")
     parser.add_argument("--debug", action=argparse.BooleanOptionalAction, default=True)
-    parser.add_argument("--verify", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--verify", action=argparse.BooleanOptionalAction, default=False)
     args = parser.parse_args()
     args.input = os.path.abspath(args.input)
     args.output = os.path.abspath(args.output)
+    args.lang = args.lang.lower()
+
+    # convert language to 2 letter code
+    assert args.lang in lang2code, f"unsupported language: {args.lang}, must be one of {list(lang2code.keys())}"
+    args.lang = lang2code[args.lang]
+
+    # we do not have name2voice mappings for languages other that English/Japanese
+    if args.verify and args.lang != "en" and args.lang != "ja":
+        args.verify = False
+        print(f"Voice verification turned off")
 
     # determine processing target
     filename, ext = os.path.splitext(os.path.basename(args.input))
     target = filename.lower()
-    assert target == "yosuga" or target == "haruka"
+    assert target == "yosuga" or target == "haruka", f"unrecognized processing target {target}, must be yosuga.csx or Haruka.csx"
     print(f"Processing {target}")
 
     # extract text from csx file
@@ -198,8 +197,8 @@ def main():
     txtfile = os.path.join(args.output, target + ".txt")
     with open(txtfile, mode="r", encoding="utf-8") as file:
         lines = file.readlines()
-    lines = cleanup_csx_export(target, lines, keep_name=args.verify)
-    lines = fix_missing_text(target, lines)
+    lines = cleanup_csx_export(target, lines, args.lang, keep_name=args.verify)
+    lines = fix_missing_text(target, lines, args.lang)
     print(f"TXT file processed")
 
     # write tmpfile for debugging purpose
@@ -210,7 +209,7 @@ def main():
         print(f"DEBUG file saved")
 
     # fill text into kirikiri script template
-    fill_ks_template(target, lines, args.output, args.verify)
+    fill_ks_template(target, lines, args.lang, args.output, args.verify)
     print(f"KS files generated")
 
     # TODO: create xp3 patch
