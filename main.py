@@ -80,35 +80,61 @@ def count_talk_command(template):
             res += 1
     return res
 
+def normalize_name(name):
+    # standardize whitespaces
+    name = re.sub(r"\s+", "　", name)
+    # no voice for hero
+    name = re.sub(r"(悠|Haruka)\s*(＆|&|and)\s*", "", name)
+    name = re.sub(r"\s*(＆|&|and)\s*(悠|Haruka)", "", name)
+    return name.strip()
+
+def find_voice_from_command(line):
+    # command example: "@Talk name=Sora voice=SR000001"
+    m = re.match(r".*name=([^ \n\r]+)\s+(?:voice=([^ \n\r]+))?", line)
+    if m is None:
+        return None
+    name, audio = m.groups()
+    name = normalize_name(name)
+    if audio is not None:
+        return audio[:2] if "/" not in audio else audio
+    else:
+        return name2voice.get(name)
+
+def find_name_from_dialogue(line):
+    # dialogue example: "[Haruka] I'm home."
+    m = re.match(r"\[([^《]*(?:《(.+)》)?[^》]*)\]", line)
+    if m is None:
+        return None
+    name, altname = m.groups()
+    # special cases: "[声《初佳》]"
+    if altname is not None:
+        name = altname
+    return normalize_name(name)
+
 def replace_talk_command(template, text, verify):
     res = []
     cur = 0
-    talk = False
-    voice = None
+    talk = None
     voicecnt = 0
     matchcnt = 0
     for line in template:
-        if talk:
+        if talk is not None:
             if is_ks_command(line, "@hit"):
-                # verify name matches with voice
-                m = re.match(r"\[([^《]*(?:《(.+)》)?[^》]*)\]", text[cur]) if verify else None
-                if m is not None:
-                    name, altname = m.groups()
-                    # special cases: "[声《初佳》]"
-                    if altname is not None:
-                        name = altname
-                    # no voice for hero
-                    name = name.replace("悠＆", "")
-                    name = name.replace("＆悠", "")
+                # verify whether name matches with voice
+                if verify:
+                    voice = find_voice_from_command(talk)
+                    name = find_name_from_dialogue(text[cur])
+                    if voice is not None:
+                        voicecnt += 1
                     if name in name2voice:
                         # either match or ignore NPC voice
                         assert name2voice[name] == voice or voice == "NP", f"name and voice not match: {name} vs {voice}"
                         matchcnt += 1
-                voice = None
-                # exit talk state
+                # insert translated text
                 res.append(text[cur] + "\n")
                 cur += 1
-                talk = False
+                # exit talk state
+                talk = None
             else:
                 # skip empty line
                 assert len(line.strip()) == 0, f"unknown text between @Talk and @Hitret command: {line}"
@@ -116,20 +142,7 @@ def replace_talk_command(template, text, verify):
         else:
             if is_ks_command(line, "@talk"):
                 # enter talk state
-                talk = True
-                # save voice for later use
-                m = re.match(r".*name=([^ ]+)\s+(?:voice=([^ ]+))?", line) if verify else None
-                if m is not None:
-                    name, audiofile = m.groups()
-                    # no voice for hero
-                    name = name.replace("Haruka　and　", "")
-                    name = name.replace("　and　Haruka", "")
-                    # only check for single voice
-                    if audiofile is not None:
-                        voice = "multiple" if "/" in audiofile else audiofile[:2]
-                        voicecnt += 1
-                    elif name in name2voice:
-                        voice = name2voice[name]
+                talk = line
         res.append(line)
     if verify:
         print(f"verified voice={voicecnt} match={matchcnt} skip={voicecnt - matchcnt}")
