@@ -24,22 +24,19 @@ def run_csxtool(infile, outdir):
     os.remove(tmpfile)
     return outfile
 
-def cleanup_csx_export(target, lines, lang, keep_name):
+def cleanup_csx_export(target, lines, lang):
     res = []
     prev = 0
     for line in lines:
         # format example: "[JP00001] [Haruka] I'm home."
-        m = re.match(r"\[JP(\d+)\]\s*(\[.*\])?\s*(.*)", line)
+        m = re.match(r"\[JP(\d+)\]\s?(.*)", line)
         if not m:
             continue
-        index, name, text = m.groups()
+        index, text = m.groups()
         cur = int(index)
         if prev != cur:
             res.append("")
             prev = cur
-        # keep name for verification
-        if keep_name and name is not None:
-            res[-1] += name
         # add line break for multi-line text
         if len(res[-1]) > 0:
             res[-1] += "\n"
@@ -111,7 +108,7 @@ def find_name_from_dialogue(line):
         name = altname
     return normalize_name(name)
 
-def replace_talk_command(template, text, verify):
+def replace_talk_command(template, text):
     res = []
     cur = 0
     talk = None
@@ -121,17 +118,17 @@ def replace_talk_command(template, text, verify):
         if talk is not None:
             if is_ks_command(line, "@hit"):
                 # verify whether name matches with voice
-                if verify:
-                    voice = find_voice_from_command(talk)
-                    name = find_name_from_dialogue(text[cur])
-                    if voice is not None:
-                        voicecnt += 1
-                    if name in name2voice:
-                        # either match or ignore NPC voice
-                        assert name2voice[name] == voice or voice == "NP", f"name and voice not match: {name} vs {voice}"
-                        matchcnt += 1
+                voice = find_voice_from_command(talk)
+                name = find_name_from_dialogue(text[cur])
+                if voice is not None:
+                    voicecnt += 1
+                if name in name2voice:
+                    # either match or ignore NPC voice
+                    assert name2voice[name] == voice or voice == "NP", f"name and voice not match: {name} vs {voice}"
+                    matchcnt += 1
                 # insert translated text
-                res.append(text[cur] + "\n")
+                body = re.sub(r"^\[.+\]\s?", "", text[cur])
+                res.append(body + "\n")
                 cur += 1
                 # exit talk state
                 talk = None
@@ -144,12 +141,11 @@ def replace_talk_command(template, text, verify):
                 # enter talk state
                 talk = line
         res.append(line)
-    if verify:
-        print(f"verified voice={voicecnt} match={matchcnt} skip={voicecnt - matchcnt}")
+    print(f"verified voice={voicecnt} match={matchcnt} skip={voicecnt - matchcnt}")
     assert cur == len(text), f"@Talk command and translation text not match: {cur} vs {len(text)}"
     return res
 
-def fill_ks_template(target, lines, lang, outdir, verify):
+def fill_ks_template(target, lines, lang, outdir):
     indir = os.path.join(rootdir, "dependencies", target)
     outdir = os.path.join(outdir, "scenario")
     os.makedirs(outdir, exist_ok=True)
@@ -164,7 +160,7 @@ def fill_ks_template(target, lines, lang, outdir, verify):
             template = file.readlines()
         # fill dialogue text
         cnt = count_talk_command(template)
-        res = replace_talk_command(template, lines[offset:offset+cnt], verify)
+        res = replace_talk_command(template, lines[offset:offset+cnt])
         offset += cnt
         # replace choice text
         res = "".join(res)
@@ -205,8 +201,6 @@ def main():
     parser.add_argument("-i", "--input", default="./yosuga.csx")
     parser.add_argument("-o", "--output", default="./compile")
     parser.add_argument("-l", "--lang", default="ja")
-    parser.add_argument("--debug", action=argparse.BooleanOptionalAction, default=True)
-    parser.add_argument("--verify", action=argparse.BooleanOptionalAction, default=False)
     args = parser.parse_args()
     args.input = os.path.abspath(args.input)
     args.output = os.path.abspath(args.output)
@@ -215,11 +209,6 @@ def main():
     # convert language to 2 letter code
     assert args.lang in lang2code, f"unsupported language: {args.lang}, must be one of {list(lang2code.keys())}"
     args.lang = lang2code[args.lang]
-
-    # we do not have name2voice mappings for languages other that English/Japanese
-    if args.verify and args.lang != "en" and args.lang != "ja":
-        args.verify = False
-        print(f"Voice verification turned off")
 
     # determine processing target
     csxname, csxext = os.path.splitext(os.path.basename(args.input))
@@ -235,19 +224,18 @@ def main():
     # read and process generated text file
     with open(txtfile, mode="r", encoding="utf-8") as file:
         lines = file.readlines()
-    lines = cleanup_csx_export(target, lines, args.lang, keep_name=args.verify)
+    lines = cleanup_csx_export(target, lines, args.lang)
     lines = fix_missing_text(target, lines, args.lang)
     print(f"TXT file processed")
 
     # write tmpfile for debugging purpose
-    if args.debug:
-        tmppath = os.path.join(args.output, "tmp.txt")
-        with open(tmppath, mode="w", encoding="utf-8") as file:
-            file.write("\n".join(lines))
-        print(f"DEBUG file saved to {tmppath}")
+    tmppath = os.path.join(args.output, "tmp.txt")
+    with open(tmppath, mode="w", encoding="utf-8") as file:
+        file.write("\n".join(lines))
+    print(f"DEBUG file saved to {tmppath}")
 
     # fill text into kirikiri script template
-    ksdir = fill_ks_template(target, lines, args.lang, args.output, args.verify)
+    ksdir = fill_ks_template(target, lines, args.lang, args.output)
     print(f"KS files generated in {ksdir}")
 
     # pack output as xp3 format
