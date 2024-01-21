@@ -444,7 +444,7 @@
 
 @Hitret id=11277
 
-@Talk name=Sora　and　Nao　and　Akira　and　Kazuha　and　Ryouhei/Everyone voice=SYN000007
+@Talk name=Sora　and　Nao　and　Akira　and　Kazuha　and　Ryouhei/Everyone voice=SYN000007
 
 @Hitret id=11278
 
